@@ -7,6 +7,8 @@ use sqlx::{pool, postgres::PgPoolOptions, Postgres,Pool};
 use std::time::Instant;
 use log;
 
+pub struct Logger;
+
 #[derive(serde::Serialize)]
 struct ApiResponse<T> {
     message: T,
