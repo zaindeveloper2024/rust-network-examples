@@ -114,9 +114,7 @@ async fn main() -> std::io::Result<()> {
 
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    log::info!("This is an info log.");
-    log::debug!("This is a debug log.");
-    log::warn!("This is a warning log.");
+    log::info!("Starting server...");
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
