@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{pool, postgres::PgPoolOptions, Postgres,Pool};
 use std::time::Instant;
 use log;
+use validator::Validate;
 
 struct AppState {
     db: Pool<Postgres>,
@@ -18,14 +19,15 @@ struct User {
     email: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct CreateUserRequest {
+    #[validate(length(min = 1, max = 100))]
     pub name: String,
+    #[validate(email)]
     pub email: String,
 }
 
 // pub struct Logger;
-
 pub struct LoggerMiddleware<S> {
     service: S
 }
@@ -92,6 +94,10 @@ async fn create_user(
     state: web::Data<AppState>,
     user: web::Json<CreateUserRequest>,
 ) -> HttpResponse {
+    if let Err(errors) = user.validate() {
+        return HttpResponse::BadRequest().json(errors);
+    }
+
     match sqlx::query_as::<_, User>(
         "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *",
     )
@@ -123,15 +129,14 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to create pool");
 
-
-    let state = web::Data::new(AppState { db: pool });
-
     let port = std::env::var("PORT")
         .map_err(|_| "PORT environment variable not set")
         .and_then(|p| p.parse::<u16>().map_err(|_| "PORT must be a valid number"))
         .unwrap_or(8080);
 
     println!("Server is running at http://127.0.0.1:{}", port);
+
+    let state = web::Data::new(AppState { db: pool });
 
     HttpServer::new(move || {
         let cors = Cors::default()
