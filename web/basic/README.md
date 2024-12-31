@@ -6,7 +6,12 @@
 curl localhost:8080/
 curl localhost:8080/api
 curl localhost:8080/db-test
+
+# users
 curl localhost:8080/users
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "email": "john@example.com"}'
 ```
 
 ## docker
@@ -26,6 +31,7 @@ docker run -d --rm \
 docker cp setup.sql postgres-test:/setup.sql
 docker exec -it postgres-test psql -U postgres -d postgres -f /setup.sql
 
+# interactive
 docker exec -it postgres-test psql -U postgres -d postgres 
 INSERT INTO users (name, email) VALUES ('John Doe', 'john.doe@example.com');
 \d users

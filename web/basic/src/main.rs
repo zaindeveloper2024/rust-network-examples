@@ -7,7 +7,28 @@ use sqlx::{pool, postgres::PgPoolOptions, Postgres,Pool};
 use std::time::Instant;
 use log;
 
-pub struct Logger;
+struct AppState {
+    db: Pool<Postgres>,
+}
+
+#[derive(sqlx::FromRow, Serialize, Deserialize)]
+struct User {
+    id: i32,
+    name: String,
+    email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateUserRequest {
+    pub name: String,
+    pub email: String,
+}
+
+// pub struct Logger;
+
+pub struct LoggerMiddleware<S> {
+    service: S
+}
 
 #[derive(serde::Serialize)]
 struct ApiResponse<T> {
@@ -16,9 +37,6 @@ struct ApiResponse<T> {
     timestamp: chrono::DateTime<chrono::Utc>,
 }
 
-struct AppState {
-    db: Pool<Postgres>,
-}
 
 async fn json_response<T: Serialize>(message: T) -> HttpResponse {
     let response = ApiResponse {
@@ -61,14 +79,6 @@ async fn db_test(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     Ok(json_response(format!("Value from DB: {}", result.0)).await)
 }
 
-#[derive(sqlx::FromRow, serde::Serialize)]
-struct User {
-    id: i32,
-    name: String,
-    email: String,
-}
-
-#[get("/users")]
 async fn get_users(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     let users = sqlx::query_as::<_, User>("SELECT * FROM users")
         .fetch_all(&state.db)
@@ -76,6 +86,26 @@ async fn get_users(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
         .map_err(ErrorInternalServerError)?;
 
     Ok(json_response(users).await)
+}
+
+async fn create_user(
+    state: web::Data<AppState>,
+    user: web::Json<CreateUserRequest>,
+) -> HttpResponse {
+    match sqlx::query_as::<_, User>(
+        "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *",
+    )
+    .bind(&user.name)
+    .bind(&user.email)
+    .fetch_one(&state.db)
+    .await
+    {
+        Ok(created_user) => HttpResponse::Created().json(created_user),
+        Err(e) => {
+            eprintln!("Database error: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+    }
 }
 
 #[actix_web::main]
@@ -90,7 +120,7 @@ async fn main() -> std::io::Result<()> {
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .acquire_timeout(std::time::Duration::from_secs(30))
+        .acquire_timeout(std::time::Duration::from_secs(5))
         .connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL must be set"))
         .await
         .expect("Failed to create pool");
@@ -119,7 +149,8 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(db_test)
             .service(health)
-            .service(get_users)
+            .route("/users", web::get().to(get_users))
+            .route("/users", web::post().to(create_user))
     })
     .bind(("127.0.0.1", port))?
     .run()
