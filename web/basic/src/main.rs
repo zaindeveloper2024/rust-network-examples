@@ -4,45 +4,24 @@ use actix_web::{
    middleware::from_fn, web, App, Error, HttpResponse, HttpServer, Responder
 };
 use actix_cors::Cors;
-use serde::Serialize;
 use sqlx::postgres::PgPoolOptions;
 use log;
-use validator::Validate;
 
+mod handlers;
 mod models;
 mod state;
 mod middleware;
-
-// pub struct Logger;
-pub struct LoggerMiddleware<S> {
-    service: S
-}
-
-#[derive(serde::Serialize)]
-struct ApiResponse<T> {
-    message: T,
-    status: String,
-    timestamp: chrono::DateTime<chrono::Utc>,
-}
-
-
-async fn json_response<T: Serialize>(message: T) -> HttpResponse {
-    let response = ApiResponse {
-        message,
-        status: String::from("OK"),
-        timestamp: chrono::Utc::now(),
-    };
-    HttpResponse::Ok().json(response)
-}
+mod error;
+mod response;
 
 #[get("/")]
 async fn hello() -> impl Responder {
-    json_response("Hello world!".to_string()).await
+    response::json_response("Hello world!".to_string()).await
 }
 
 #[get("/health")]
 async fn health() -> impl Responder {
-    json_response("health".to_string()).await
+    response::json_response("health".to_string()).await
 }
 
 #[get("/db-test")]
@@ -53,40 +32,7 @@ async fn db_test(state: web::Data<state::AppState>) -> Result<HttpResponse, Erro
         .await
         .map_err(ErrorInternalServerError)?;
     
-    Ok(json_response(format!("Value from DB: {}", result.0)).await)
-}
-
-async fn get_users(state: web::Data<state::AppState>) -> Result<HttpResponse, Error> {
-    let users = sqlx::query_as::<_, models::user::User>("SELECT * FROM users")
-        .fetch_all(&state.db)
-        .await
-        .map_err(ErrorInternalServerError)?;
-
-    Ok(json_response(users).await)
-}
-
-async fn create_user(
-    state: web::Data<state::AppState>,
-    user: web::Json<models::user::CreateUserRequest>,
-) -> HttpResponse {
-    if let Err(errors) = user.validate() {
-        return HttpResponse::BadRequest().json(errors);
-    }
-
-    match sqlx::query_as::<_ ,models::user::User>(
-        "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *",
-    )
-    .bind(&user.name)
-    .bind(&user.email)
-    .fetch_one(&state.db)
-    .await
-    {
-        Ok(created_user) => HttpResponse::Created().json(created_user),
-        Err(e) => {
-            eprintln!("Database error: {}", e);
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    Ok(response::json_response(format!("Value from DB: {}", result.0)).await)
 }
 
 #[actix_web::main]
@@ -127,8 +73,8 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(db_test)
             .service(health)
-            .route("/users", web::get().to(get_users))
-            .route("/users", web::post().to(create_user))
+            .route("/users", web::get().to(handlers::user::get_users))
+            .route("/users", web::post().to(handlers::user::create_user))
     })
     .bind(("127.0.0.1", port))?
     .run()
