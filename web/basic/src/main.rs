@@ -1,15 +1,17 @@
 use actix_web::{
-    body::MessageBody, dev::{ServiceRequest, ServiceResponse}, error::ErrorInternalServerError, get, middleware::{from_fn, DefaultHeaders, Logger, Next}, post, web, App, Error, HttpResponse, HttpServer, Responder
+   error::ErrorInternalServerError,
+   get,
+   middleware::from_fn, web, App, Error, HttpResponse, HttpServer, Responder
 };
 use actix_cors::Cors;
-use serde::{Deserialize, Serialize};
-use sqlx::{pool, postgres::PgPoolOptions, Postgres,Pool};
-use std::time::Instant;
+use serde::Serialize;
+use sqlx::postgres::PgPoolOptions;
 use log;
 use validator::Validate;
 
 mod models;
 mod state;
+mod middleware;
 
 // pub struct Logger;
 pub struct LoggerMiddleware<S> {
@@ -31,17 +33,6 @@ async fn json_response<T: Serialize>(message: T) -> HttpResponse {
         timestamp: chrono::Utc::now(),
     };
     HttpResponse::Ok().json(response)
-}
-
-async fn time_middleware(
-    req: ServiceRequest,
-    next: Next<impl MessageBody>,
-) -> Result<ServiceResponse<impl MessageBody>, Error> {
-    let start = Instant::now();
-    let response =next.call(req).await?;
-    let duration = start.elapsed();
-    println!("Request took: {:?}", duration);
-    Ok(response)
 }
 
 #[get("/")]
@@ -131,7 +122,7 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
-            .wrap(from_fn(time_middleware))
+            .wrap(from_fn(middleware::timer::time_middleware))
             .app_data(state.clone())
             .service(hello)
             .service(db_test)
