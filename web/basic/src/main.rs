@@ -8,24 +8,8 @@ use std::time::Instant;
 use log;
 use validator::Validate;
 
-struct AppState {
-    db: Pool<Postgres>,
-}
-
-#[derive(sqlx::FromRow, Serialize, Deserialize)]
-struct User {
-    id: i32,
-    name: String,
-    email: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Validate)]
-pub struct CreateUserRequest {
-    #[validate(length(min = 1, max = 100))]
-    pub name: String,
-    #[validate(email)]
-    pub email: String,
-}
+mod models;
+mod state;
 
 // pub struct Logger;
 pub struct LoggerMiddleware<S> {
@@ -71,7 +55,7 @@ async fn health() -> impl Responder {
 }
 
 #[get("/db-test")]
-async fn db_test(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
+async fn db_test(state: web::Data<state::AppState>) -> Result<HttpResponse, Error> {
     let result = sqlx::query_as::<_, (i64,)>("SELECT $1")
         .bind(1_i64)
         .fetch_one(&state.db)
@@ -81,8 +65,8 @@ async fn db_test(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
     Ok(json_response(format!("Value from DB: {}", result.0)).await)
 }
 
-async fn get_users(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
-    let users = sqlx::query_as::<_, User>("SELECT * FROM users")
+async fn get_users(state: web::Data<state::AppState>) -> Result<HttpResponse, Error> {
+    let users = sqlx::query_as::<_, models::user::User>("SELECT * FROM users")
         .fetch_all(&state.db)
         .await
         .map_err(ErrorInternalServerError)?;
@@ -91,14 +75,14 @@ async fn get_users(state: web::Data<AppState>) -> Result<HttpResponse, Error> {
 }
 
 async fn create_user(
-    state: web::Data<AppState>,
-    user: web::Json<CreateUserRequest>,
+    state: web::Data<state::AppState>,
+    user: web::Json<models::user::CreateUserRequest>,
 ) -> HttpResponse {
     if let Err(errors) = user.validate() {
         return HttpResponse::BadRequest().json(errors);
     }
 
-    match sqlx::query_as::<_, User>(
+    match sqlx::query_as::<_ ,models::user::User>(
         "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *",
     )
     .bind(&user.name)
@@ -136,7 +120,7 @@ async fn main() -> std::io::Result<()> {
 
     println!("Server is running at http://127.0.0.1:{}", port);
 
-    let state = web::Data::new(AppState { db: pool });
+    let state = web::Data::new(state::AppState { db: pool });
 
     HttpServer::new(move || {
         let cors = Cors::default()
