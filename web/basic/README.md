@@ -45,9 +45,7 @@ INSERT INTO users (name, email) VALUES ('John Doe', 'john.doe@example.com');
 
 - metrics monitor(logging)
 - test
-- migration
 - cache
 - authentication
 - swagger
 - async task
-- vadation

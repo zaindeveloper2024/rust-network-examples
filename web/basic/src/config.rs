@@ -6,6 +6,7 @@ use crate::error::ConfigError;
 pub struct Config {
     pub app: AppConfig,
     pub database: DatabaseConfig,
+    pub redis: RedisConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -23,13 +24,11 @@ pub struct AppConfig {
     pub cors_origin: String,
 }
 
-/*
 #[derive(Debug, Deserialize, Clone)]
 pub struct RedisConfig {
     pub url: String,
-    pub pool_max_open: u32,
+    pub ttl_seconds: u32,
 }
-*/
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -40,6 +39,15 @@ pub enum Environment {
 }
 
 const DEFAULT_PORT: u16 = 8080;
+
+impl RedisConfig {
+    fn new() -> Result<Self, ConfigError> {
+        Ok(RedisConfig {
+            url: Config::get_env_or("REDIS_URL", "redis://127.0.0.1:6379")?,
+            ttl_seconds: Config::get_env_or("REDIS_TTL_SECONDS", "60")?.parse()?,
+        })
+    }
+}
 
 impl Config {
     pub fn new() -> Result<Self, ConfigError> {
@@ -57,6 +65,7 @@ impl Config {
                 max_connections: Self::get_env_or("DATABASE_MAX_CONNECTIONS", "5")?.parse()?,
                 timeout_seconds: Self::get_env_or("DATABASE_TIMEOUT_SECONDS", "5")?.parse()?,
             },
+            redis: RedisConfig::new()?,
         })
     }
 

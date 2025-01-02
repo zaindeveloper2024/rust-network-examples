@@ -1,6 +1,7 @@
 use actix_web::{middleware::{from_fn, Logger}, web, App, HttpServer};
 use log;
 
+mod lib;
 mod handlers;
 mod models;
 mod middleware;
