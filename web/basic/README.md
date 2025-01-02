@@ -37,3 +37,14 @@ docker exec -it postgres-test psql -U postgres -d postgres
 INSERT INTO users (name, email) VALUES ('John Doe', 'john.doe@example.com');
 \d users
 ```
+
+## todos
+
+- metrics monitor(logging)
+- test
+- migration
+- cache
+- authentication
+- swagger
+- async task
+- vadation
