@@ -1,10 +1,19 @@
 use actix_web::{HttpResponse, ResponseError};
-use std::fmt;
+use std::{fmt, env, num};
+use thiserror::Error;
 
 #[derive(Debug)]
 pub enum AppError {
     DatabaseError(sqlx::Error),
     ValidationError(validator::ValidationErrors),
+}
+
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    #[error("Environment variable error: {0}")]
+    EnvVar(#[from] env::VarError),
+    #[error("Failed to parse integer: {0}")]
+    ParseInt(#[from] num::ParseIntError),
 }
 
 impl From<validator::ValidationErrors> for AppError {

@@ -1,4 +1,4 @@
-use actix_web::{middleware::from_fn, web, App, HttpServer};
+use actix_web::{middleware::{from_fn, Logger}, web, App, HttpServer};
 use actix_cors::Cors;
 use sqlx::postgres::PgPoolOptions;
 use log;
@@ -16,7 +16,9 @@ async fn main() -> std::io::Result<()> {
     let config = config::Config::new().expect("Failed to load configuration");
 
     // Initialize logger
-    env_logger::init_from_env(config.app.log_level.as_str());
+    // env_logger::init_from_env(config.app.log_level.as_str());
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+
     log::info!("Starting server in {:?} mode...", config.app.environment);
 
     let pool = PgPoolOptions::new()
@@ -52,6 +54,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .wrap(from_fn(middleware::timer::time_middleware))
+            .wrap(Logger::default())
             .app_data(app_config.clone())
             .app_data(state.clone())
             .service(handlers::health::hello)

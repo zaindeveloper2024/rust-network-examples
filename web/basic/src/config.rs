@@ -1,14 +1,6 @@
 use serde::Deserialize;
 use std::env;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum ConfigError {
-    #[error("Environment variable error: {0}")]
-    EnvVar(#[from] std::env::VarError),
-    #[error("Failed to parse integer: {0}")]
-    ParseInt(#[from] std::num::ParseIntError),
-}
+use crate::error::ConfigError;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
