@@ -28,6 +28,9 @@ docker run -d --rm \
 ## sql
 
 ```sh
+# migration
+sqlx migrate run
+
 # setup
 docker cp setup.sql postgres-test:/setup.sql
 docker exec -it postgres-test psql -U postgres -d postgres -f /setup.sql
