@@ -1,39 +1,14 @@
-use actix_web::{
-   error::ErrorInternalServerError,
-   get,
-   middleware::from_fn, web, App, Error, HttpResponse, HttpServer, Responder
-};
+use actix_web::{middleware::from_fn, web, App, HttpServer};
 use actix_cors::Cors;
 use sqlx::postgres::PgPoolOptions;
 use log;
 
 mod handlers;
 mod models;
-mod state;
 mod middleware;
+mod state;
 mod error;
 mod response;
-
-#[get("/")]
-async fn hello() -> impl Responder {
-    response::json_response("Hello world!".to_string()).await
-}
-
-#[get("/health")]
-async fn health() -> impl Responder {
-    response::json_response("health".to_string()).await
-}
-
-#[get("/db-test")]
-async fn db_test(state: web::Data<state::AppState>) -> Result<HttpResponse, Error> {
-    let result = sqlx::query_as::<_, (i64,)>("SELECT $1")
-        .bind(1_i64)
-        .fetch_one(&state.db)
-        .await
-        .map_err(ErrorInternalServerError)?;
-    
-    Ok(response::json_response(format!("Value from DB: {}", result.0)).await)
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -70,9 +45,9 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .wrap(from_fn(middleware::timer::time_middleware))
             .app_data(state.clone())
-            .service(hello)
-            .service(db_test)
-            .service(health)
+            .service(handlers::health::hello)
+            .service(handlers::health::db_test)
+            .service(handlers::health::health)
             .route("/users", web::get().to(handlers::user::get_users))
             .route("/users", web::post().to(handlers::user::create_user))
     })
