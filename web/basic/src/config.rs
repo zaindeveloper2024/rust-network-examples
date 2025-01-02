@@ -19,7 +19,6 @@ pub struct DatabaseConfig {
 pub struct AppConfig {
     pub host: String,
     pub port: u16,
-    pub log_level: String,
     pub environment: Environment,
     pub cors_origin: String,
 }
@@ -50,7 +49,6 @@ impl Config {
             app: AppConfig {
                 host: Self::get_env_or("APP_HOST", "127.0.0.1")?,
                 port: Self::get_env_or("APP_PORT", DEFAULT_PORT.to_string().as_str())?.parse()?,
-                log_level: Self::get_env_or("RUST_LOG", "info")?,
                 environment: Self::get_environment()?,
                 cors_origin: Self::get_env_or("CORS_ORIGIN", "*")?,
             },

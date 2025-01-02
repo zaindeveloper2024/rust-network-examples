@@ -13,5 +13,6 @@ pub async fn time_middleware(
     let response = next.call(req).await?;
     let duration = start.elapsed();
     log::info!("Request took: {:?}", duration);
+
     Ok(response)
 }

@@ -1,11 +1,16 @@
 use actix_web::{HttpResponse, ResponseError};
-use std::{fmt, env, num};
+use std::{env, num};
+use serde_json::json;
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AppError {
-    DatabaseError(sqlx::Error),
-    ValidationError(validator::ValidationErrors),
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] sqlx::Error),
+    #[error("Validation error: {0}")]
+    ValidationError(#[from] validator::ValidationErrors),
+    #[error("Config error: {0}")]
+    ConfigError(#[from] ConfigError),
 }
 
 #[derive(Debug, Error)]
@@ -16,28 +21,23 @@ pub enum ConfigError {
     ParseInt(#[from] num::ParseIntError),
 }
 
-impl From<validator::ValidationErrors> for AppError {
-    fn from(errors: validator::ValidationErrors) -> Self {
-        AppError::ValidationError(errors)
-    }
-}
-
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AppError::DatabaseError(e) => write!(f, "Database error: {}", e),
-            AppError::ValidationError(e) => write!(f, "Validation error: {}", e),
-        }
-    }
-}
-
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
-        match self {
-            AppError::ValidationError(e) => HttpResponse::BadRequest().json(e),
-            AppError::DatabaseError(_) => {
-                HttpResponse::InternalServerError().json("Internal server error")
+        let error_response = json!({
+            "error": {
+                "type": match self {
+                    AppError::DatabaseError(_) => "DATABASE_ERROR",
+                    AppError::ValidationError(_) => "VALIDATION_ERROR",
+                    AppError::ConfigError(_) => "CONFIG_ERROR",
+                },
+                "message": self.to_string()
             }
+        });
+
+        match self {
+            AppError::ValidationError(_) => HttpResponse::BadRequest().json(error_response),
+            AppError::DatabaseError(_) => HttpResponse::InternalServerError().json(error_response),
+            AppError::ConfigError(_) => HttpResponse::InternalServerError().json(error_response),
         }
     }
 }
