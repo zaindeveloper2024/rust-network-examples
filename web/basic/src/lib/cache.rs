@@ -3,17 +3,23 @@ use redis::AsyncCommands;
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
 use log;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum CacheError {
+    #[error("Redis error: {0}")]
+    Redis(#[from] redis::RedisError),
+}
 
 pub struct Cache {
     client: RedisClient,
 }
 
 impl Cache {
-    pub fn new(redis_url: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let client = RedisClient::open(redis_url)?;
+    pub fn new(redis_url: &str) -> Result<Self, CacheError> {
+        let client = RedisClient::open(redis_url).map_err(CacheError::Redis)?;
         Ok(Self { client })
     }
-
 
     pub async fn set<T: Serialize>(
         &self,
@@ -64,5 +70,4 @@ impl Cache {
         log::info!("Cache deleted key: {}", key);
         Ok(())
     }
-
 }
