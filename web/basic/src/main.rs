@@ -17,6 +17,7 @@ async fn main() -> std::io::Result<()> {
     let config = config::Config::new().expect("Failed to load configuration");
 
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    // logging
 
     log::info!("Starting server in {:?} mode...", config.app.environment);
 
@@ -43,6 +44,7 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
+// api v1 routes
 fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(handlers::health::hello)
         .service(handlers::health::db_test)
